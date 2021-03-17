@@ -2,12 +2,13 @@ package rpc
 
 import (
 	"encoding/json"
-	"fmt"
+	"github.com/pkg/errors"
 	"io"
 	"log"
 	"net"
 	"reflect"
 	"rpc/codec"
+	"strings"
 	"sync"
 )
 
@@ -29,7 +30,9 @@ var DefaultOption = &Option{
 /**
  * @Description: 服务端的实现部分
  */
-type Server struct {}
+type Server struct {
+	serviceMap sync.Map
+}
 /**
  * @Description: 构造一个new Server
  * @return *Server
@@ -113,6 +116,8 @@ func (server *Server) connCodec(codecFunc codec.Codec){
 type request struct {
 	header *codec.Header	//请求中的header
 	argv,replyv reflect.Value //请求中的参数和返回值
+	mtype *methodType
+	serv *service
 }
 
 /**
@@ -147,10 +152,22 @@ func (server *Server) readRequest(codecFunc codec.Codec)(*request ,error){
 	}
 	//构造一个包含了请求中全部信息的数据结构,然后读取请求中的请求体
 	req:=&request{header:h}
-	//TODO:现在我们还没有办法得知每个参数的类型,先默认为其是string
-	req.argv = reflect.New(reflect.TypeOf(""))
-	if err = codecFunc.ReadBody(req.argv.Interface());err !=nil {
-		log.Println("rpc server:read argv err:",err)
+	req.serv ,req.mtype,err  = server.findService(h.ServiceMethod)
+	if err !=nil{
+		return req,err
+	}
+	//创建两个入参
+	req.argv = req.mtype.newArgv()
+	req.replyv = req.mtype.newReplyv()
+	iargv:=req.argv.Interface()
+	//判断是否是指针类型
+	if req.argv.Type().Kind() != reflect.Ptr{
+		iargv = req.argv.Addr().Interface()
+	}
+	//将请求反序列化为第一个入参
+	if err = codecFunc.ReadBody(iargv);err != nil{
+		log.Println("rpc server: read body err:",err)
+		return req,err
 	}
 	//最后把这个包含了请求全部信息的对象返回
 	return req,nil
@@ -173,12 +190,14 @@ func (server *Server) sendResponse(codecFunc codec.Codec, header *codec.Header, 
 }
 
 func (server *Server) handleRequest(codecFunc codec.Codec, req *request, replyMutex *sync.Mutex, handleGroup *sync.WaitGroup) {
-	//TODO: 需要从注册的函数中拿到方法,将调用的返回值做为正确的回复
 	defer handleGroup.Done()
-	//处理请求
-	log.Println("rpc server: handleRequest",req.header, req.argv.Elem())
-	req.replyv = reflect.ValueOf(fmt.Sprintf("rpc resp %d",req.header.Seq))
 
+	err := req.serv.call(req.mtype,req.argv,req.replyv)
+	if err !=nil{
+		req.header.Error = err.Error()
+		server.sendResponse(codecFunc,req.header,invalidRequest,replyMutex)
+		return
+	}
 	//回复请求
 	server.sendResponse(codecFunc,req.header,req.replyv.Interface(),replyMutex)
 }
@@ -198,6 +217,41 @@ func (server *Server) Accept(list net.Listener) {
 	}
 }
 
+/**
+ * @Description: 服务注册
+ * @receiver server
+ * @param list
+ */
+func (server *Server) Register(rcvr interface{}) error {
+	s := newService(rcvr)
+	if _,dup := server.serviceMap.LoadOrStore(s.name,s);dup{
+		return errors.New("rpc: service already defind: "+s.name)
+	}
+	return nil
+}
+
+
+func (server *Server) findService(serviceMethod string) (svc *service, mtype *methodType, err error) {
+	dot := strings.LastIndex(serviceMethod, ".")
+	if dot < 0 {
+		err = errors.New("rpc server: service/method request ill-formed: " + serviceMethod)
+		return
+	}
+	serviceName, methodName := serviceMethod[:dot], serviceMethod[dot+1:]
+	svci, ok := server.serviceMap.Load(serviceName)
+	if !ok {
+		err = errors.New("rpc server: can't find service " + serviceName)
+		return
+	}
+	svc = svci.(*service)
+	mtype = svc.method[methodName]
+	if mtype == nil {
+		err = errors.New("rpc server: can't find method " + methodName)
+	}
+	return
+}
+
+
 
 /**
  * @Description: 服务端的快捷函数,简化使用
@@ -208,6 +262,7 @@ func (server *Server) Accept(list net.Listener) {
  * @Description: 默认的Server实例
  */
 var DefaultServer = NewServer()
+
 /**
  * @Description: 默认的 Accept 方法,net.Listener 为参数,服务器是默认的服务器
  * @param listener
@@ -216,3 +271,10 @@ func Accept(listener net.Listener){
 	DefaultServer.Accept(listener)
 }
 
+/**
+ * @Description: 默认的 Register 方法
+ * @param listener
+ */
+func Register(rcvr interface{})  error{
+	return DefaultServer.Register(rcvr)
+}
