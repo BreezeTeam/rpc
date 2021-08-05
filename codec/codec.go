@@ -32,7 +32,7 @@ const (
 	GobType Type = "application/gob"
 	JsonType Type = "application/json"
 )
-
+	
 
 //根据Type 从map中国获取对应的构造函数
 var NewCodecFuncMap map[Type]NewCodecFunc
