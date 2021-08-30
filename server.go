@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
@@ -19,14 +20,18 @@ import (
  */
 const MagicNumber = 0x3bef5c
 
-type Option struct {
-	MagicNumber    int //魔数,标识服务端的系统
-	CodecType      codec.Type
-	ConnectTimeout time.Duration
-	HandleTimeout  time.Duration
+/*
+type Header struct {
+	ServiceMethod string //服务名和方法名
+	Seq uint64 //请求序号
+	Error string //客户端为空,服务端如果发生错误,会把错误信息放到Error中
 }
 
-var DefaultOption = &Option{
+ */
+
+
+
+var DefaultOption = &Protocol{
 	MagicNumber:    MagicNumber,
 	CodecType:      codec.JsonType,
 	ConnectTimeout: time.Second * 10,
@@ -36,7 +41,7 @@ var DefaultOption = &Option{
  * @Description: 服务端的实现部分
  */
 type Server struct {
-	serviceMap sync.Map
+	serviceMap sync.Map // map[string]*service
 }
 
 /**
@@ -58,14 +63,16 @@ func NewServer() *Server {
  * @receiver server
  * @param conn
  */
-func (server *Server) HandleConnection(conn io.ReadWriteCloser) {
+func (server *Server) ServeConn(conn io.ReadWriteCloser) {
 	defer conn.Close() //必须要这样才能关闭链接
-	var opt Option
-	//反序列化得到Option实例
+	var opt Protocol
+	// 将链接 通过json反序列化得到Option实例，
 	if err := json.NewDecoder(conn).Decode(&opt); err != nil {
 		log.Println("rpc server:option decode error:", err)
 		return
 	}
+	buf := bufio.NewWriter(conn)
+
 	//检查魔数
 	if opt.MagicNumber != MagicNumber {
 		log.Printf("rpc server:invalid magic number %x", opt.MagicNumber)
@@ -78,39 +85,59 @@ func (server *Server) HandleConnection(conn io.ReadWriteCloser) {
 		return
 	}
 	//对每一个请求进行解码
-	server.connCodec(codecFunc(conn),&opt)
+	server.ServeConnCodec(codecFunc(conn), &opt)
 }
 
 /**
  * @Description: 一个reponse中 body的占位符,当请求发生错误时使用,或者无法得到body时使用
  */
 var invalidRequest = struct{}{}
+
+type ServerCodec interface {
+	ReadRequestHeader(*Request) error //通过
+	ReadRequestBody(interface{}) error
+	WriteResponse(*Response, interface{}) error
+	io.Closer
+}
+
 /**
  * @Description: 一个链接的解码函数,一个链接会有很多请求,主要流程是读取请求,处理请求,回复请求
  * @receiver server
  * @param codecFunc
  */
-func (server *Server) connCodec(codecFunc codec.Codec,opt *Option) {
-	defer codecFunc.Close() //最后的是否,关闭链接
+func (server *Server) ServeConnCodec(codec ServerCodec) {
+	//最后需要记得回收链接
+	defer codec.Close()
+	replyMutex := new(sync.Mutex) // 发送的锁
 	handleGroup := new(sync.WaitGroup)
-	replyMutex := new(sync.Mutex)
-	//一次
 	for {
 		//读取请求
-		req, err := server.readRequest(codecFunc)
+		req, err := server.readRequest(codec) // 读取请求  service, mtype, req, argv, replyv, keepReading, err := server.readRequest(codec)
 		if err != nil {
+			//			if debugLog && err != io.EOF {
+			//				log.Println("rpc:", err)
+			//			}
+
+			//if !keepReading {
+			//	break
+			//}
+
 			//请求为空时,说明,传输过程丢包了,或者怎么样,关闭连接吧
-			if req == nil {
-				break
+			if req != nil {
+				//发送请求
+				//server.sendResponse(sending, req, invalidRequest, codec, err.Error())
+				//释放请求
+				//server.freeRequest(req)
+
+				req.header.Error = err.Error()
+				//处理请求可以并发,但是回复请求必须逐个发出,并发会导致多个回复报文在一起,客户端无法解析,这里使用一个互斥锁
+				server.sendResponse(codec, req.header, invalidRequest, replyMutex)
 			}
-			req.header.Error = err.Error()
-			//处理请求可以并发,但是回复请求必须逐个发出,并发会导致多个回复报文在一起,客户端无法解析,这里使用一个互斥锁
-			server.sendResponse(codecFunc, req.header, invalidRequest, replyMutex)
 			continue
 		}
 		handleGroup.Add(1)
 		//使用协程来并发处理请求
-		go server.handleRequest(codecFunc, req, replyMutex, handleGroup,opt.HandleTimeout)
+		go server.call(codec, req, replyMutex, handleGroup, opt.HandleTimeout) //对应rpc call
 	}
 	//等待该次链接的所有请求处理完毕
 	handleGroup.Wait()
@@ -133,9 +160,9 @@ type request struct {
  * @return *codec.Header
  * @return error
  */
-func (server *Server) readRequestHeader(codecFunc codec.Codec) (*codec.Header, error) {
-	var header codec.Header
-	if err := codecFunc.ReadHeader(&header); err != nil {
+func (server *Server) readRequestHeader(codec ServerCodec) (*codec.Header, error) {
+	//var header codec.Header
+	if err := codec.ReadRequestHeader(NewResponse(),&header); err != nil {
 		if err != io.EOF && err != io.ErrUnexpectedEOF {
 			log.Println("rpc server:read header error:", err)
 		}
@@ -151,9 +178,9 @@ func (server *Server) readRequestHeader(codecFunc codec.Codec) (*codec.Header, e
  * @return *request
  * @return error
  */
-func (server *Server) readRequest(codecFunc codec.Codec) (*request, error) {
+func (server *Server) readRequest(codec ServerCodec) (*request, error) {
 	//读取请求中的header
-	h, err := server.readRequestHeader(codecFunc)
+	h, err := server.readRequestHeader(codec)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +199,7 @@ func (server *Server) readRequest(codecFunc codec.Codec) (*request, error) {
 		iargv = req.argv.Addr().Interface()
 	}
 	//将请求反序列化为第一个入参
-	if err = codecFunc.ReadBody(iargv); err != nil {
+	if err = codec.ReadRequestBody(iargv); err != nil {
 		log.Println("rpc server: read body err:", err)
 		return req, err
 	}
@@ -196,25 +223,47 @@ func (server *Server) sendResponse(codecFunc codec.Codec, header *codec.Header, 
 	}
 }
 
+/*
+func (s *service) call(server *Server, sending *sync.Mutex, wg *sync.WaitGroup, mtype *methodType, req *Request, argv, replyv reflect.Value, codec ServerCodec) {
+	if wg != nil {
+		defer wg.Done()
+	}
+	mtype.Lock()
+	mtype.numCalls++
+	mtype.Unlock()
+	function := mtype.method.Func
+	// Invoke the method, providing a new value for the reply.
+	returnValues := function.Call([]reflect.Value{s.rcvr, argv, replyv})
+	// The return value for the method is an error.
+	errInter := returnValues[0].Interface()
+	errmsg := ""
+	if errInter != nil {
+		errmsg = errInter.(error).Error()
+	}
+	server.sendResponse(sending, req, replyv.Interface(), codec, errmsg)
+	server.freeRequest(req)
+}
+*/
+
 //called 信道接收到消息，代表处理没有超时，继续执行 sendResponse
 //time.After() 先于 called 接收到消息，说明处理已经超时，called 和 sent 都将被阻塞。在 case <-time.After(timeout) 处调用 sendResponse
-func (server *Server) handleRequest(codecFunc codec.Codec, req *request, replyMutex *sync.Mutex, handleGroup *sync.WaitGroup,timeout time.Duration) {
+func (server *Server) call(codecFunc codec.Codec, req *request, replyMutex *sync.Mutex, handleGroup *sync.WaitGroup, timeout time.Duration) {
 	defer handleGroup.Done()
 	//TODO 携程泄露
 	called := make(chan struct{})
 	sent := make(chan struct{})
 	go func() {
 		err := req.serv.call(req.mtype, req.argv, req.replyv)
-		called<- struct{}{}
+		called <- struct{}{}
 		if err != nil {
 			req.header.Error = err.Error()
 			server.sendResponse(codecFunc, req.header, invalidRequest, replyMutex)
-			sent<- struct{}{}
+			sent <- struct{}{}
 			return
 		}
 		//回复请求
 		server.sendResponse(codecFunc, req.header, req.replyv.Interface(), replyMutex)
-		sent<- struct{}{}
+		sent <- struct{}{}
 	}()
 	if timeout == 0 {
 		<-called
@@ -232,18 +281,19 @@ func (server *Server) handleRequest(codecFunc codec.Codec, req *request, replyMu
 }
 
 /**
- * @Description: 并发处理每一个连接
+ * @Description: 默认的 和net/rpc 包的操作一致 并发处理每一个连接
  * @receiver server
  * @param list
  */
 func (server *Server) Accept(list net.Listener) {
-	for {
+	for { //循环等待socket连接建立
 		conn, err := list.Accept()
 		if err != nil {
 			log.Println("rpc server:accept error:", err)
+			return
 		}
-		go server.HandleConnection(conn)
-
+		// 当链接建立，就交给子协成进行处理
+		go server.ServeConn(conn)
 	}
 }
 

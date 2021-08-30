@@ -20,7 +20,17 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="dd23d198-81c1-4e86-9345-81a3e44ee98a" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/codec/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/inner.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/protocol.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/test/client/main/main.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/test/server/main/main.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/test/server/main/proto/protobuf.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/codec/codec.go" beforeDir="false" afterPath="$PROJECT_DIR$/codec/codec.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpc原理学习.md" beforeDir="false" afterPath="$PROJECT_DIR$/rpc原理学习.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server.go" beforeDir="false" afterPath="$PROJECT_DIR$/server.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -34,9 +44,10 @@
       </list>
     </option>
   </component>
-  <component name="GOROOT" url="file://$PROJECT_DIR$/../../go" />
+  <component name="GOROOT" path="/usr/local/go" />
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="UPDATE_TYPE" value="REBASE" />
   </component>
   <component name="GoLibraries">
     <option name="indexEntireGoPath" value="false" />
@@ -54,52 +65,73 @@
     <property name="go.import.settings.migrated" value="true" />
     <property name="go.sdk.automatically.set" value="true" />
     <property name="go.tried.to.enable.integration.vgo.integrator" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/test/client" />
     <property name="node.js.detected.package.eslint" value="true" />
     <property name="node.js.detected.package.tslint" value="true" />
     <property name="node.js.selected.package.eslint" value="(autodetect)" />
     <property name="node.js.selected.package.tslint" value="(autodetect)" />
-    <property name="settings.editor.selected.configurable" value="FeaturesTrainerSettingsPanel" />
+    <property name="settings.editor.selected.configurable" value="preferences.pluginManager" />
   </component>
   <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/test/server/main/proto" />
+    </key>
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/test/client" />
+      <recent name="$PROJECT_DIR$/test/client/main" />
       <recent name="C:\home\go_project\rpc" />
     </key>
   </component>
-  <component name="RunManager" selected="Go Build.go build main.go">
-    <configuration name="go build main.go" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Go Build.go build main.go (1)">
+    <configuration name="go build main.go (1)" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
       <module name="rpc" />
       <working_directory value="$PROJECT_DIR$" />
       <kind value="FILE" />
-      <package value="rpc" />
+      <filePath value="$PROJECT_DIR$/test/client/main/main.go" />
       <directory value="$PROJECT_DIR$" />
-      <filePath value="$PROJECT_DIR$/main/main.go" />
       <method v="2" />
     </configuration>
-    <configuration name="go build rpc/main" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
+    <configuration name="go build main.go (2)" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
+      <module name="rpc" />
+      <working_directory value="$PROJECT_DIR$" />
+      <kind value="FILE" />
+      <filePath value="$PROJECT_DIR$/test/server/main/main.go" />
+      <directory value="$PROJECT_DIR$" />
+      <method v="2" />
+    </configuration>
+    <configuration name="go build protobuf.go" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
+      <module name="rpc" />
+      <working_directory value="$PROJECT_DIR$" />
+      <kind value="FILE" />
+      <filePath value="$PROJECT_DIR$/test/server/main/protobuf.go" />
+      <directory value="$PROJECT_DIR$" />
+      <method v="2" />
+    </configuration>
+    <configuration name="go build rpc/test/client/main" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
       <module name="rpc" />
       <working_directory value="$PROJECT_DIR$" />
       <kind value="PACKAGE" />
-      <package value="rpc/main" />
+      <filePath value="$PROJECT_DIR$/test/client/main/main.go" />
+      <package value="rpc/test/client/main" />
       <directory value="$PROJECT_DIR$" />
-      <filePath value="$PROJECT_DIR$/main/main.go" />
       <method v="2" />
     </configuration>
-    <configuration name="TestClient_Call in client_test.go" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+    <configuration name="go build rpc/test/server/main" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
       <module name="rpc" />
       <working_directory value="$PROJECT_DIR$" />
-      <kind value="FILE" />
+      <kind value="PACKAGE" />
+      <filePath value="$PROJECT_DIR$/test/server/main/main.go" />
+      <package value="rpc/test/server/main" />
       <directory value="$PROJECT_DIR$" />
-      <filePath value="$PROJECT_DIR$/client_test.go" />
-      <framework value="gotest" />
-      <pattern value="^\QTestClient_Call\E$" />
       <method v="2" />
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Go Build.go build main.go" />
-        <item itemvalue="Go Build.go build rpc/main" />
-        <item itemvalue="Go Test.TestClient_Call in client_test.go" />
+        <item itemvalue="Go Build.go build main.go (1)" />
+        <item itemvalue="Go Build.go build main.go (2)" />
+        <item itemvalue="Go Build.go build protobuf.go" />
+        <item itemvalue="Go Build.go build rpc/test/client/main" />
+        <item itemvalue="Go Build.go build rpc/test/server/main" />
       </list>
     </recent_temporary>
   </component>
@@ -121,6 +153,68 @@
   </component>
   <component name="VgoProject">
     <integration-enabled>true</integration-enabled>
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="1816" y="644" width="196" height="178" key="#Custom_Plugin_Repositories" timestamp="1629953561570">
+      <screen x="0" y="27" width="2560" height="1413" />
+    </state>
+    <state x="1816" y="644" width="196" height="178" key="#Custom_Plugin_Repositories/0.27.2560.1413@0.27.2560.1413" timestamp="1629953561570" />
+    <state x="1710" y="662" key="#GOROOT" timestamp="1629958967569">
+      <screen x="0" y="27" width="2560" height="1413" />
+    </state>
+    <state x="1710" y="662" key="#GOROOT/0.27.2560.1413@0.27.2560.1413" timestamp="1629958967569" />
+    <state x="1488" y="590" width="917" height="770" key="#xdebugger.evaluate" timestamp="1630218777299">
+      <screen x="0" y="27" width="2560" height="1413" />
+    </state>
+    <state x="1488" y="590" width="917" height="770" key="#xdebugger.evaluate/0.27.2560.1413@0.27.2560.1413" timestamp="1630218777299" />
+    <state width="2512" height="295" key="GridCell.Tab.0.bottom" timestamp="1630219769313">
+      <screen x="0" y="27" width="2560" height="1413" />
+    </state>
+    <state width="2512" height="295" key="GridCell.Tab.0.bottom/0.27.2560.1413@0.27.2560.1413" timestamp="1630219769313" />
+    <state width="2512" height="295" key="GridCell.Tab.0.center" timestamp="1630219769313">
+      <screen x="0" y="27" width="2560" height="1413" />
+    </state>
+    <state width="2512" height="295" key="GridCell.Tab.0.center/0.27.2560.1413@0.27.2560.1413" timestamp="1630219769313" />
+    <state width="2512" height="295" key="GridCell.Tab.0.left" timestamp="1630219769313">
+      <screen x="0" y="27" width="2560" height="1413" />
+    </state>
+    <state width="2512" height="295" key="GridCell.Tab.0.left/0.27.2560.1413@0.27.2560.1413" timestamp="1630219769313" />
+    <state width="2512" height="295" key="GridCell.Tab.0.right" timestamp="1630219769313">
+      <screen x="0" y="27" width="2560" height="1413" />
+    </state>
+    <state width="2512" height="295" key="GridCell.Tab.0.right/0.27.2560.1413@0.27.2560.1413" timestamp="1630219769313" />
+    <state width="2512" height="295" key="GridCell.Tab.1.bottom" timestamp="1630219769314">
+      <screen x="0" y="27" width="2560" height="1413" />
+    </state>
+    <state width="2512" height="295" key="GridCell.Tab.1.bottom/0.27.2560.1413@0.27.2560.1413" timestamp="1630219769314" />
+    <state width="2512" height="295" key="GridCell.Tab.1.center" timestamp="1630219769313">
+      <screen x="0" y="27" width="2560" height="1413" />
+    </state>
+    <state width="2512" height="295" key="GridCell.Tab.1.center/0.27.2560.1413@0.27.2560.1413" timestamp="1630219769313" />
+    <state width="2512" height="295" key="GridCell.Tab.1.left" timestamp="1630219769313">
+      <screen x="0" y="27" width="2560" height="1413" />
+    </state>
+    <state width="2512" height="295" key="GridCell.Tab.1.left/0.27.2560.1413@0.27.2560.1413" timestamp="1630219769313" />
+    <state width="2512" height="295" key="GridCell.Tab.1.right" timestamp="1630219769313">
+      <screen x="0" y="27" width="2560" height="1413" />
+    </state>
+    <state width="2512" height="295" key="GridCell.Tab.1.right/0.27.2560.1413@0.27.2560.1413" timestamp="1630219769313" />
+    <state x="251" y="152" width="2048" height="1160" key="MergeDialog" timestamp="1629950325563">
+      <screen x="0" y="27" width="2560" height="1413" />
+    </state>
+    <state x="251" y="152" width="2048" height="1160" key="MergeDialog/0.27.2560.1413@0.27.2560.1413" timestamp="1629950325563" />
+    <state x="1019" y="27" key="SettingsEditor" timestamp="1629953633788">
+      <screen x="0" y="27" width="2560" height="1413" />
+    </state>
+    <state x="1019" y="27" key="SettingsEditor/0.27.2560.1413@0.27.2560.1413" timestamp="1629953633788" />
+    <state x="1080" y="645" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2" timestamp="1629950572114">
+      <screen x="0" y="27" width="2560" height="1413" />
+    </state>
+    <state x="1080" y="645" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2/0.27.2560.1413@0.27.2560.1413" timestamp="1629950572114" />
+    <state x="943" y="347" width="672" height="678" key="search.everywhere.popup" timestamp="1629977962595">
+      <screen x="0" y="27" width="2560" height="1413" />
+    </state>
+    <state x="943" y="347" width="672" height="678" key="search.everywhere.popup/0.27.2560.1413@0.27.2560.1413" timestamp="1629977962595" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -154,6 +248,31 @@
           <url>file:///usr/local/go/src/io/io.go</url>
           <line>309</line>
           <option name="timeStamp" value="33" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/test/server/main/main.go</url>
+          <line>30</line>
+          <option name="timeStamp" value="38" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/test/server/main/proto/protobuf.go</url>
+          <line>21</line>
+          <option name="timeStamp" value="39" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/test/server/main/proto/protobuf.go</url>
+          <line>57</line>
+          <option name="timeStamp" value="40" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/test/server/main/main.go</url>
+          <line>36</line>
+          <option name="timeStamp" value="41" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/test/server/main/main.go</url>
+          <line>37</line>
+          <option name="timeStamp" value="42" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

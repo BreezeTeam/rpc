@@ -12,7 +12,7 @@ type Header struct {
  * @Description: 编解码器的接口定义
  */
 type Codec interface {
-	io.Closer
+	io.Closer //实现了 Close() 方法的就是Closer
 	ReadHeader(*Header) error
 	ReadBody(interface{}) error
 	Write(*Header,interface{}) error
@@ -32,7 +32,7 @@ const (
 	GobType Type = "application/gob"
 	JsonType Type = "application/json"
 )
-	
+
 
 //根据Type 从map中国获取对应的构造函数
 var NewCodecFuncMap map[Type]NewCodecFunc

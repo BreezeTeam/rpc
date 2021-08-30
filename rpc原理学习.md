@@ -63,25 +63,7 @@ TIPs:
     ![image-20210522162827231](https://gitee.com/Euraxluo/images/raw/master/picgo/image-20210522162827231.png)
 
 - RPC为了吞吐量，都是异步并发发送的请求，等待服务应答，因此需要消息ID，来判断应答对应哪个请求
-
-
-
-
-**golang 实现rpc序列化**
-
-RPC客户端调用如下:
-`err = client.Call("service.Method",args,&reply)`
-客户端发送的请求有包含服务名,方法名,参数列表
-服务端返回的响应有错误,返回值
-将请求和响应中的参数和返回值抽象为body,那么剩余的信息可以抽象为一个Header
-
-```go
-type Header struct {
-	ServiceMethod string //服务名和方法名
-	Seq uint64 //请求序号
-	Error string //客户端为空,服务端如果发生错误,会把错误信息放到Error中
-}
-```
+~~~~
 
 ### RPC网络通信
 
