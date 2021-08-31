@@ -19,19 +19,7 @@
     <select />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="dd23d198-81c1-4e86-9345-81a3e44ee98a" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/codec/README.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/inner.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/protocol.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/test/client/main/main.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/test/server/main/main.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/test/server/main/proto/protobuf.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/codec/codec.go" beforeDir="false" afterPath="$PROJECT_DIR$/codec/codec.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rpc原理学习.md" beforeDir="false" afterPath="$PROJECT_DIR$/rpc原理学习.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/server.go" beforeDir="false" afterPath="$PROJECT_DIR$/server.go" afterDir="false" />
-    </list>
+    <list default="true" id="dd23d198-81c1-4e86-9345-81a3e44ee98a" name="Default Changelist" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -207,10 +195,14 @@
       <screen x="0" y="27" width="2560" height="1413" />
     </state>
     <state x="1019" y="27" key="SettingsEditor/0.27.2560.1413@0.27.2560.1413" timestamp="1629953633788" />
-    <state x="1080" y="645" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2" timestamp="1629950572114">
+    <state x="875" y="464" width="800" height="536" key="Vcs.Push.Dialog.v2" timestamp="1630368604642">
       <screen x="0" y="27" width="2560" height="1413" />
     </state>
-    <state x="1080" y="645" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2/0.27.2560.1413@0.27.2560.1413" timestamp="1629950572114" />
+    <state x="875" y="464" width="800" height="536" key="Vcs.Push.Dialog.v2/0.27.2560.1413@0.27.2560.1413" timestamp="1630368604642" />
+    <state x="1080" y="645" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2" timestamp="1630367970495">
+      <screen x="0" y="27" width="2560" height="1413" />
+    </state>
+    <state x="1080" y="645" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2/0.27.2560.1413@0.27.2560.1413" timestamp="1630367970495" />
     <state x="943" y="347" width="672" height="678" key="search.everywhere.popup" timestamp="1629977962595">
       <screen x="0" y="27" width="2560" height="1413" />
     </state>
