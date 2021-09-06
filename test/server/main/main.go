@@ -42,7 +42,7 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 
-		tmpBuffer = proto.Unpack(append(tmpBuffer, buffer[:n]...), readerChannel)
+		tmpBuffer = proto.UnpackHeader(append(tmpBuffer, buffer[:n]...), readerChannel)
 	}
 }
 
