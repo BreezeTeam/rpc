@@ -29,7 +29,25 @@ type Header struct {
 
  */
 
+/**
 
+Register(rcvr interface{}) error
+RegisterName(name string, rcvr interface{}) error
+register(rcvr interface{}, name string, useName bool) error
+sendResponse(sending *sync.Mutex, req *Request, reply interface{}, codec ServerCodec, errmsg string)
+ServeConn(conn io.ReadWriteCloser)
+ServeCodec(codec ServerCodec)
+ServeRequest(codec ServerCodec) error
+getRequest() *Request
+freeRequest(req *Request)
+getResponse() *Response
+freeResponse(resp *Response)
+readRequest(codec ServerCodec) (service *service, mtype *methodType, req *Request, argv reflect.Value, replyv reflect.Value, keepReading bool, err error)
+readRequestHeader(codec ServerCodec) (svc *service, mtype *methodType, req *Request, keepReading bool, err error)
+Accept(lis net.Listener)
+ServeHTTP(w http.ResponseWriter, req *http.Request)
+HandleHTTP(rpcPath string, debugPath string)
+ */
 
 var DefaultOption = &Protocol{
 	MagicNumber:    MagicNumber,
