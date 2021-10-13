@@ -50,7 +50,7 @@ func reader(readerChannel chan []byte) {
 	for {
 		select {
 		case data := <-readerChannel:
-			Log(string(data))
+			Log("read_success:"+string(data))
 		}
 	}
 }

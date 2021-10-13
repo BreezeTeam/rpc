@@ -63,7 +63,6 @@ TIPs:
     ![image-20210522162827231](https://gitee.com/Euraxluo/images/raw/master/picgo/image-20210522162827231.png)
 
 - RPC为了吞吐量，都是异步并发发送的请求，等待服务应答，因此需要消息ID，来判断应答对应哪个请求
-~~~~
 
 ### RPC网络通信
 

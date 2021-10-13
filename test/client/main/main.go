@@ -8,13 +8,14 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"rpc/codec"
+	"rpc/metadata"
+	"strconv"
 	"sync"
 	"time"
 )
 
 func sender(conn net.Conn) {
-	header := DefaultProtocolHeader(codec.GobTypeCode, 1, 2, DefaultExtend())
+	header := DefaultProtocolHeader(metadata.Request, 1, 2, DefaultExtend())
 	packedHeader, err := header.PacketHeader()
 	if err != nil {
 		fmt.Println("send failed: ", err)
@@ -22,7 +23,7 @@ func sender(conn net.Conn) {
 	conn.Write(packedHeader)
 	p := NewProtocolDataFactory()
 	for i := 0; i < 100; i++ {
-		data := "{\"Id\":1,\"Name\":\"golang\",\"Message\":\"message\"}"
+		data := "{\"Id\":"+strconv.Itoa(i)+",\"Name\":\"golang\",\"Message\":\"message\"}"
 		conn.Write(p.ProductProtocolData([]byte(data)).PacketData())
 	}
 	fmt.Println("send over")
@@ -86,14 +87,14 @@ type ProtocolHeader struct {
 	MagicNumber          int32          //魔数,标识RPC传输协议的版本号,4位int类型，得到之后，将其转为16进制 4位
 	ProtocolLength       int32          //协议体长度 4位
 	ProtocolHeaderLength int32          //协议头长度 4位
-	CodecType            codec.TypeCode //编码类型 int32 4位
+	CodecType            metadata.MessageType //编码类型 int32 4位
 	ConnectTimeout       time.Duration  //链接超时时间 8位
 	HandleTimeout        time.Duration  //处理超时时间 8位
 	Extend               *Extend        //扩展字段
 }
 
 //默认协议构造器
-func DefaultProtocolHeader(codeType codec.TypeCode, connectTimeout time.Duration, handlerTimeout time.Duration, extend *Extend) *ProtocolHeader {
+func DefaultProtocolHeader(codeType metadata.MessageType, connectTimeout time.Duration, handlerTimeout time.Duration, extend *Extend) *ProtocolHeader {
 	return &ProtocolHeader{
 		MagicNumber:          MagicNumber,
 		ProtocolLength:       ConstHeaderLength,
@@ -117,6 +118,7 @@ func (protocolHeader *ProtocolHeader) PacketHeader() ([]byte, error) {
 
 	header = append(header, Int32ToBytes(protocolHeader.MagicNumber)...)
 	header = append(header, Int32ToBytes(protocolHeader.ProtocolLength)...)
+
 	header = append(header, Int32ToBytes(protocolHeader.ProtocolHeaderLength)...)
 	header = append(header, Int32ToBytes(int32(protocolHeader.CodecType))...)
 	header = append(header, Int64ToBytes(int64(protocolHeader.ConnectTimeout))...)

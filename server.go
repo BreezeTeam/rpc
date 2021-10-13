@@ -27,7 +27,7 @@ type Header struct {
 	Error string //客户端为空,服务端如果发生错误,会把错误信息放到Error中
 }
 
- */
+*/
 
 /**
 
@@ -47,7 +47,7 @@ readRequestHeader(codec ServerCodec) (svc *service, mtype *methodType, req *Requ
 Accept(lis net.Listener)
 ServeHTTP(w http.ResponseWriter, req *http.Request)
 HandleHTTP(rpcPath string, debugPath string)
- */
+*/
 
 var DefaultOption = &Protocol{
 	MagicNumber:    MagicNumber,
@@ -76,8 +76,9 @@ func NewServer() *Server {
  * @param conn
  */
 
+
 /**
- * @Description: 处理每一个连接的具体的函数
+ * @Description: 协议层 处理每一个连接的具体的函数
  * @receiver server
  * @param conn
  */
@@ -180,7 +181,7 @@ type request struct {
  */
 func (server *Server) readRequestHeader(codec ServerCodec) (*codec.Header, error) {
 	//var header codec.Header
-	if err := codec.ReadRequestHeader(NewResponse(),&header); err != nil {
+	if err := codec.ReadRequestHeader(NewResponse(), &header); err != nil {
 		if err != io.EOF && err != io.ErrUnexpectedEOF {
 			log.Println("rpc server:read header error:", err)
 		}
@@ -299,7 +300,7 @@ func (server *Server) call(codecFunc codec.Codec, req *request, replyMutex *sync
 }
 
 /**
- * @Description: 默认的 和net/rpc 包的操作一致 并发处理每一个连接
+ * @Description: 链接层 默认的 和net/rpc 包的操作一致 并发处理每一个连接
  * @receiver server
  * @param list
  */
@@ -307,7 +308,7 @@ func (server *Server) Accept(list net.Listener) {
 	for { //循环等待socket连接建立
 		conn, err := list.Accept()
 		if err != nil {
-			log.Println("rpc server:accept error:", err)
+			log.Println("rpc.Serve: accept:", err.Error())
 			return
 		}
 		// 当链接建立，就交给子协成进行处理

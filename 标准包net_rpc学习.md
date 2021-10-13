@@ -59,7 +59,7 @@ func (server *Server) register(rcvr interface{}, name string, useName bool) erro
 1. 循环等待socket连接建立，并且开启子协程处理每一个链接`go server.ServeConn(conn)`
 2. 在ServeConn中，参数是一个链接，该方法首先创建了编解码器gobServerCodec,然后使用`server.ServeCodec(srv)`利用编解码器对链接进行处理
 ```go
-//Accept 接受侦听器上的连接并提供请求
+// Accept 接受侦听器上的连接并提供请求
 // 对于每个传入连接。 接受块直到侦听器
 // 返回一个非零错误。 调用者通常在一个
 // 去语句。
