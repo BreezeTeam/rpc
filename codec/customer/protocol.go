@@ -21,200 +21,319 @@ const (
 	ConstCodecType            = 4
 	ConstConnectTimeout       = 8
 	ConstHandleTimeout        = 8
-
-	ConstSequence = 16
-
-	ConstHeaderLength = 32
-	ConstDataLength   = 4
+	ConstSequence             = 16
+	ConstHeaderLength         = 32
+	ConstDataLength           = 4
 )
 
-// A Decoder reads and decodes JSON values from an input stream.
 type Decoder struct {
 	r       io.Reader
 	buf     []byte
-	scanp   int   // start of unread data in buf
-	scanned int64 // amount of data already scanned
+	scanp   int   //放置在未读字节首部
+	scanned int64 // 已扫描部分
 	err     error
-
-	tokenState int
-	tokenStack []int
+	elemp   int //interface的地址指针
 }
 
-// NewDecoder returns a new decoder that reads from r.
-//
-// The decoder introduces its own buffering and may
-// read data from r beyond the JSON values requested.
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{r: r}
 }
 
-// Decode reads the next JSON-encoded value from its
-// input and stores it in the value pointed to by v.
-//
-// See the documentation for Unmarshal for details about
-// the conversion of JSON into a Go value.
-func (dec *Decoder) Decode(v interface{}) error {
+type DecoderError string
+
+func (e DecoderError) Error() string {
+	return string(e)
+}
+func (dec *Decoder) Decode(v interface{}) (err error) {
 	if dec.err != nil {
 		return dec.err
 	}
+	return dec.interfaceDecoder(v)
+}
+func (dec *Decoder) decodeWithBigEndian(buffer io.Writer, data interface{}) (err error) {
+	switch data.(type) {
+	case string:
+		_, err = buffer.Write(String2Bytes(data.(string)))
+		return err
+	case []byte:
+		_, err = buffer.Write(data.([]byte))
+		return err
+	default:
+		err = binary.Read(bytes.NewBuffer(dec.buf), binary.BigEndian, &data)
+		fmt.Printf("%v", data)
+		fmt.Printf("%v", err)
+		return err
+	}
+}
 
-	//if err := dec.tokenPrepareForDecode(); err != nil {
+func (dec *Decoder) interfaceDecoder(v interface{}) (err error) {
+	rv := reflect.ValueOf(v)
+	//必须是指针类型
+	if rv.Kind() != reflect.Ptr || rv.IsNil() {
+		if reflect.TypeOf(v).Kind() != reflect.Ptr {
+			return DecoderError("DecoderError: non-pointer,kind of (" + reflect.TypeOf(v).Kind().String() + ")")
+		}
+		return DecoderError("DecoderError: nil,kind of (" + reflect.TypeOf(v).Kind().String() + ")")
+	}
+	return dec.valueDecoder(v)
+}
+
+func (dec *Decoder) valueDecoder(v interface{}) (err error) {
+	//以interface为模板,结合dec.buf中读取的数据进行数据解码
+	// 1. 如果数据小于1个int,那就需要refill,将缓冲区装满
+	if len(dec.buf)-dec.scanp < 8 {
+		dec.refill()
+	}
+	//获取解码函数进行解码
+	return dec.newTypeDecoder(reflect.TypeOf(v))(v)
+}
+
+type decoderFunc func(v interface{}) error
+
+func (dec *Decoder) newTypeDecoder(t reflect.Type) decoderFunc {
+	switch t.Kind() {
+	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr, reflect.Float32, reflect.Float64:
+		return dec.numericalDecoder
+	case reflect.String:
+		return dec.stringDecoder
+	case reflect.Interface:
+		return dec.interfaceDecoder
+	case reflect.Struct:
+		return dec.structDecoder
+	case reflect.Map:
+		return dec.mapDecoder
+	case reflect.Slice, reflect.Array:
+		return dec.sliceDecoder
+	case reflect.Ptr:
+		return dec.ptrDecoder
+	default:
+		return dec.unsupportedTypeDecoder
+	}
+}
+func (dec *Decoder) unsupportedTypeDecoder(i interface{}) error {
+	return DecoderError("UnsupportedTypeError")
+}
+
+func (dec *Decoder) structDecoder(i interface{}) (err error) {
+	iv := reflect.ValueOf(i)
+	if iv.Kind() != reflect.Struct {
+		return DecoderError("need struct kind")
+	}
+	var lenx int64
+	x := &lenx
+	println(x)
+	if err := dec.valueDecoder(&lenx); err != nil {
+		err = fmt.Errorf(err.Error())
+	}
+
+	for i := 0; i < iv.NumField(); i++ {
+		fmt.Printf("%v\n", iv.Kind())
+		fmt.Printf("%v\n", iv.Field(i).Kind())
+		if err = dec.valueDecoder(iv.Field(i).Interface()); err != nil {
+			return err
+		}
+	}
+	//if err = valueEncoder(buffer, structBuffer.Len()); err != nil {
 	//	return err
 	//}
-	//
-	//if !dec.tokenValueAllowed() {
-	//	return &SyntaxError{msg: "not at beginning of value", Offset: dec.InputOffset()}
-	//}
-	//
-	//// Read whole value into buffer.
-	//n, err := dec.readValue()
-	//if err != nil {
-	//	return err
-	//}
-	//dec.d.init(dec.buf[dec.scanp : dec.scanp+n])
-	//dec.scanp += n
-	//
-	//// Don't save err from unmarshal into dec.err:
-	//// the connection is still usable since we read a complete JSON
-	//// object from it before the error happened.
-	//err = dec.d.unmarshal(v)
-	//
-	//// fixup token streaming state
-	//dec.tokenValueEnd()
-
-	//return err
+	//return bytesEncoder(buffer, structBuffer.Bytes())
 	return nil
 }
 
-// Buffered returns a reader of the data remaining in the Decoder's
-// buffer. The reader is valid until the next call to Decode.
-func (dec *Decoder) Buffered() io.Reader {
-	return bytes.NewReader(dec.buf[dec.scanp:])
+func (dec *Decoder) numericalDecoder(i interface{}) error {
+	buffer := bytes.NewBuffer([]byte{})
+	v := reflect.ValueOf(i)
+	data := v.Interface()
+	switch data.(type) {
+	case int64:
+		return dec.decodeWithBigEndian(buffer, data.(int64))
+	case *bool:
+		return dec.decodeWithBigEndian(buffer, data.(*bool))
+	case []bool:
+		return dec.decodeWithBigEndian(buffer, data.([]bool))
+	case *int8:
+		return dec.decodeWithBigEndian(buffer, data.(*int8))
+	case []int8:
+		return dec.decodeWithBigEndian(buffer, data.([]int8))
+	case *uint8:
+		return dec.decodeWithBigEndian(buffer, data.(*uint8))
+	case []uint8:
+		return dec.decodeWithBigEndian(buffer, data.([]uint8))
+	case *int16:
+		return dec.decodeWithBigEndian(buffer, data.(*int16))
+	case []int16:
+		return dec.decodeWithBigEndian(buffer, data.([]int16))
+	case *int32:
+		return dec.decodeWithBigEndian(buffer, data.(*int32))
+	case []int32:
+		return dec.decodeWithBigEndian(buffer, data.([]int32))
+	case *uint32:
+		return dec.decodeWithBigEndian(buffer, data.(*uint32))
+	case []uint32:
+		return dec.decodeWithBigEndian(buffer, data.([]uint32))
+	case *int64:
+		return dec.decodeWithBigEndian(buffer, data.(*int64))
+	case []int64:
+		return dec.decodeWithBigEndian(buffer, data.([]int64))
+	case *uint64:
+		return dec.decodeWithBigEndian(buffer, data.(*uint64))
+	case []uint64:
+		return dec.decodeWithBigEndian(buffer, data.([]uint64))
+	case *float32:
+		return dec.decodeWithBigEndian(buffer, data.(*float32))
+	case []float32:
+		return dec.decodeWithBigEndian(buffer, data.([]float32))
+	case *float64:
+		return dec.decodeWithBigEndian(buffer, data.(*float64))
+	case []float64:
+		return dec.decodeWithBigEndian(buffer, data.([]float64))
+	case interface{}:
+		return dec.decodeWithBigEndian(buffer, data)
+	default:
+		return dec.decodeWithBigEndian(buffer, data)
+	}
+	return nil
+}
+func (dec *Decoder) sliceDecoder(i interface{}) (err error) {
+	//iv := reflect.ValueOf(i)
+	////写入KV对的数量
+	//if err = encodeWithBigEndian(buffer, iv.Len()); err != nil || iv.Len() == 0 {
+	//	return err
+	//}
+	//data := iv.Interface()
+	//switch data.(type) {
+	//case []bool, []int8, []uint8, []int16, []uint16, []int32, []uint32, []int64, []uint64, []float32, []float64:
+	//	return encodeWithBigEndian(buffer, data)
+	//case []int, []uint:
+	//	x := strconv.IntSize
+	//	if n := x / 8; n != 0 {
+	//		bs := make([]byte, n)
+	//		switch v := data.(type) {
+	//		case []int64:
+	//			for i, x := range v {
+	//				binary.BigEndian.PutUint64(bs[8*i:], uint64(x))
+	//			}
+	//		case []uint64:
+	//			for i, x := range v {
+	//				binary.BigEndian.PutUint64(bs[8*i:], x)
+	//			}
+	//		}
+	//		_, err = buffer.Write(bs)
+	//		return err
+	//	}
+	//	return err
+	//default:
+	//	for idx := 0; idx < iv.Len(); idx++ {
+	//		if err = valueEncoder(buffer, iv.Index(idx).Interface()); err != nil {
+	//			return err
+	//		}
+	//	}
+	//	return nil
+	//}
+	return nil
 }
 
-//func (dec *Decoder) readValue() (int, error) {
-//	dec.scan.reset()
-//
-//	scanp := dec.scanp
-//	var err error
-//Input:
-//	// help the compiler see that scanp is never negative, so it can remove
-//	// some bounds checks below.
-//	for scanp >= 0 {
-//
-//		// Look in the buffer for a new value.
-//		for ; scanp < len(dec.buf); scanp++ {
-//			c := dec.buf[scanp]
-//			dec.scan.bytes++
-//			switch dec.scan.step(&dec.scan, c) {
-//			case scanEnd:
-//				// scanEnd is delayed one byte so we decrement
-//				// the scanner bytes count by 1 to ensure that
-//				// this value is correct in the next call of Decode.
-//				dec.scan.bytes--
-//				break Input
-//			case scanEndObject, scanEndArray:
-//				// scanEnd is delayed one byte.
-//				// We might block trying to get that byte from src,
-//				// so instead invent a space byte.
-//				if stateEndValue(&dec.scan, ' ') == scanEnd {
-//					scanp++
-//					break Input
-//				}
-//			case scanError:
-//				dec.err = dec.scan.err
-//				return 0, dec.scan.err
-//			}
-//		}
-//
-//		// Did the last read have an error?
-//		// Delayed until now to allow buffer scan.
-//		if err != nil {
-//			if err == io.EOF {
-//				if dec.scan.step(&dec.scan, ' ') == scanEnd {
-//					break Input
-//				}
-//				if nonSpace(dec.buf) {
-//					err = io.ErrUnexpectedEOF
-//				}
-//			}
-//			dec.err = err
-//			return 0, err
-//		}
-//
-//		n := scanp - dec.scanp
-//		err = dec.refill()
-//		scanp = dec.scanp + n
-//	}
-//	return scanp - dec.scanp, nil
-//}
+func (dec *Decoder) mapDecoder(i interface{}) (err error) {
+	//iv := reflect.ValueOf(i)
+	//keys := iv.MapKeys()
+	////写入KV对的数量
+	//if err = encodeWithBigEndian(buffer, len(keys)); err != nil || len(keys) == 0 {
+	//	return err
+	//}
+	//for _, k := range keys {
+	//	m_key := k.Convert(iv.Type().Key())
+	//	if err = valueEncoder(buffer, m_key.Interface()); err != nil {
+	//		return err
+	//	}
+	//	if err = valueEncoder(buffer, iv.MapIndex(m_key).Interface()); err != nil {
+	//		return err
+	//	}
+	//}
+	//return err
+	return nil
+}
+func (dec *Decoder) bytesDecoder(v interface{}) error {
+	return nil
+	//return encodeWithBigEndian(buffer, v)
+}
+
+func (dec *Decoder) stringDecoder(i interface{}) (err error) {
+	var len int64
+	if err := dec.valueDecoder(&len); err != nil {
+		err = fmt.Errorf(err.Error())
+	}
+
+	//structBuffer := bytes.NewBuffer([]byte{})
+	//if err = encodeWithBigEndian(structBuffer, reflect.ValueOf(i).String()); err != nil {
+	//	return err
+	//}
+	//if err = valueEncoder(buffer, structBuffer.Len()); err != nil {
+	//	return err
+	//}
+	//return bytesEncoder(buffer, structBuffer.Bytes())
+	return nil
+}
+
+func (dec *Decoder) invalidValuedEcoder(i interface{}) error {
+	//return encodeWithBigEndian(buffer, 0)
+	return nil
+}
+
+func (dec *Decoder) unsupportedTypedDecoder(i interface{}) error {
+	return EncoderError("UnsupportedTypeError")
+}
+
+func (dec *Decoder) ptrDecoder(i interface{}) error {
+	iv := reflect.ValueOf(i)
+	if iv.IsNil() {
+		return dec.nilDecoder(i)
+	}
+	return dec.valueDecoder(iv.Elem().Interface())
+}
+
+func (dec *Decoder) nilDecoder(i interface{}) error {
+	//if reflect.ValueOf(i).IsNil() {
+	//	return encodeWithBigEndian(buffer, uint8(0))
+	//}
+	return EncoderError("must nil kind")
+}
 
 func (dec *Decoder) refill() error {
-	// Make room to read more into the buffer.
-	// First slide down data already consumed.
 	if dec.scanp > 0 {
 		dec.scanned += int64(dec.scanp)
 		n := copy(dec.buf, dec.buf[dec.scanp:])
 		dec.buf = dec.buf[:n]
 		dec.scanp = 0
 	}
-
-	// Grow buffer if not large enough.
 	const minRead = 512
 	if cap(dec.buf)-len(dec.buf) < minRead {
 		newBuf := make([]byte, len(dec.buf), 2*cap(dec.buf)+minRead)
 		copy(newBuf, dec.buf)
 		dec.buf = newBuf
 	}
-
-	// Read. Delay error for next iteration (after scan).
 	n, err := dec.r.Read(dec.buf[len(dec.buf):cap(dec.buf)])
 	dec.buf = dec.buf[0 : len(dec.buf)+n]
-
 	return err
 }
 
-// An Encoder writes JSON values to an output stream.
 type Encoder struct {
 	w   io.Writer
 	err error
-
-	indentBuf    *bytes.Buffer
-	indentPrefix string
-	indentValue  string
 }
 
-// NewEncoder returns a new encoder that writes to w.
 func NewEncoder(w io.Writer) *Encoder {
 	return &Encoder{w: w}
 }
 
-// Encode writes the JSON encoding of v to the stream,
-// followed by a newline character.
-//
-// See the documentation for Marshal for details about the
-// conversion of Go values to JSON.
 func (enc *Encoder) Encode(v interface{}) error {
 	if enc.err != nil {
 		return enc.err
 	}
-	b, err := EncodeInterface(v)
+	//编码Interface
+	b, err := enc.encodeInterface(v)
 	if err != nil {
 		return err
 	}
-	if enc.indentPrefix != "" || enc.indentValue != "" {
-		if enc.indentBuf == nil {
-			enc.indentBuf = new(bytes.Buffer)
-		}
-		enc.indentBuf.Reset()
-		//err = Indent(enc.indentBuf, b, enc.indentPrefix, enc.indentValue)
-		if err != nil {
-
-			return err
-		}
-		b = enc.indentBuf.Bytes()
-	}
-
 	//写入数据
 	if _, err = enc.w.Write(b); err != nil {
 		enc.err = err
@@ -223,38 +342,37 @@ func (enc *Encoder) Encode(v interface{}) error {
 	return err
 }
 
+func (enc *Encoder) encodeInterface(v interface{}) ([]byte, error) {
+	buffer := bytes.NewBuffer([]byte{})
+	err := valueEncoder(buffer, v)
+	if err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
 type EncoderError string
 
 func (e EncoderError) Error() string {
 	return string(e)
 }
 
-type EncoderItem struct {
-	bytes []byte //字节序列
-}
-
-func EncodeWithBigEndian(buffer io.Writer, data interface{}) error {
+func encodeWithBigEndian(buffer io.Writer, data interface{}) (err error) {
 	switch data.(type) {
-	case *int:
-		return EncoderError("cant encode *int")
-	case int:
-		return EncoderError("cant encode int")
-	case []int:
-		data = data.([]int64)
-		return EncoderError("cant encode []int")
+	case *int, int:
+		v := reflect.ValueOf(data)
+		return encodeWithBigEndian(buffer, v.Int())
+	case *uint, uint:
+		v := reflect.ValueOf(data)
+		return encodeWithBigEndian(buffer, v.Uint())
 	case string:
-		_, err := buffer.Write(String2Bytes(data.(string)))
-		if err != nil {
-			return EncoderError(err.Error())
-		} else {
-			return nil
-		}
+		_, err = buffer.Write(String2Bytes(data.(string)))
+		return err
+	case []byte:
+		_, err = buffer.Write(data.([]byte))
+		return err
 	default:
-		err := binary.Write(buffer, binary.BigEndian, data)
-		if err != nil {
-			return EncoderError(err.Error())
-		}
-		return nil
+		return binary.Write(buffer, binary.BigEndian, data)
 	}
 }
 
@@ -263,30 +381,25 @@ func numericalEncoder(buffer io.Writer, i interface{}) error {
 	data := v.Interface()
 	switch data.(type) {
 	case *bool, bool, []bool, *int8, int8, []int8, *uint8, uint8, []uint8, *int16, int16, []int16, *uint16, uint16, []uint16, *int32, int32, []int32, *uint32, uint32, []uint32, *int64, int64, []int64, *uint64, uint64, []uint64, *float32, float32, []float32, *float64, float64, []float64:
-		return EncodeWithBigEndian(buffer, data)
+		return encodeWithBigEndian(buffer, data)
 	case *int, int:
-		return EncodeWithBigEndian(buffer, v.Int())
+		return encodeWithBigEndian(buffer, v.Int())
 	case *uint, uint:
-		return EncodeWithBigEndian(buffer, v.Uint())
+		return encodeWithBigEndian(buffer, v.Uint())
 	default:
-		switch v.Kind() {
-		case reflect.Int64:
-			return EncodeWithBigEndian(buffer, data)
-		default:
-			return EncoderError("numericalEncoder Error")
-		}
+		return encodeWithBigEndian(buffer, data)
 	}
-
 }
-func sliceEncoder(buffer io.Writer, i interface{}) error {
+func sliceEncoder(buffer io.Writer, i interface{}) (err error) {
 	iv := reflect.ValueOf(i)
-	if iv.IsNil() {
-		return nilEncoder(buffer, i)
+	//写入KV对的数量
+	if err = encodeWithBigEndian(buffer, iv.Len()); err != nil || iv.Len() == 0 {
+		return err
 	}
 	data := iv.Interface()
 	switch data.(type) {
 	case []bool, []int8, []uint8, []int16, []uint16, []int32, []uint32, []int64, []uint64, []float32, []float64:
-		return EncodeWithBigEndian(buffer, data)
+		return encodeWithBigEndian(buffer, data)
 	case []int, []uint:
 		x := strconv.IntSize
 		if n := x / 8; n != 0 {
@@ -301,127 +414,107 @@ func sliceEncoder(buffer io.Writer, i interface{}) error {
 					binary.BigEndian.PutUint64(bs[8*i:], x)
 				}
 			}
-			_, err := buffer.Write(bs)
+			_, err = buffer.Write(bs)
 			return err
 		}
-		return nil
+		return err
 	default:
-		n := iv.Len()
-		err := EncodeWithBigEndian(buffer, "[")
-		if err != nil {
-			return err
-		}
-		for idx := 0; idx < n; idx++ {
-			if idx > 0 {
-				err = EncodeWithBigEndian(buffer, ",")
-				if err != nil {
-					return err
-				}
-			}
+		for idx := 0; idx < iv.Len(); idx++ {
 			if err = valueEncoder(buffer, iv.Index(idx).Interface()); err != nil {
 				return err
 			}
-		}
-		err = EncodeWithBigEndian(buffer, "]")
-		if err != nil {
-			return err
 		}
 		return nil
 	}
 }
 
-func mapEncoder(buffer io.Writer, i interface{}) error {
+func mapEncoder(buffer io.Writer, i interface{}) (err error) {
 	iv := reflect.ValueOf(i)
-	if iv.IsNil() {
-		return nilEncoder(buffer, i)
-	}
-
-	err := EncodeWithBigEndian(buffer, "{")
-	if err != nil {
+	keys := iv.MapKeys()
+	//写入KV对的数量
+	if err = encodeWithBigEndian(buffer, len(keys)); err != nil || len(keys) == 0 {
 		return err
 	}
-
-	keys := iv.MapKeys()
-	for i, k := range keys {
-		if i > 0 {
-			err = EncodeWithBigEndian(buffer, ",")
-			if err != nil {
-				return err
-			}
-		}
+	for _, k := range keys {
 		m_key := k.Convert(iv.Type().Key())
 		if err = valueEncoder(buffer, m_key.Interface()); err != nil {
-			return err
-		}
-		err = EncodeWithBigEndian(buffer, ":")
-		if err != nil {
 			return err
 		}
 		if err = valueEncoder(buffer, iv.MapIndex(m_key).Interface()); err != nil {
 			return err
 		}
-
 	}
-	err = EncodeWithBigEndian(buffer, "}")
-	if err != nil {
+	return err
+}
+func bytesEncoder(buffer io.Writer, v interface{}) error {
+	return encodeWithBigEndian(buffer, v)
+}
+
+func stringEncoder(buffer io.Writer, i interface{}) (err error) {
+	structBuffer := bytes.NewBuffer([]byte{})
+	if err = encodeWithBigEndian(structBuffer, reflect.ValueOf(i).String()); err != nil {
 		return err
 	}
-	return nil
+	if err = valueEncoder(buffer, structBuffer.Len()); err != nil {
+		return err
+	}
+	return bytesEncoder(buffer, structBuffer.Bytes())
 }
 
-func stringEncoder(buffer io.Writer, i interface{}) error {
-	return EncodeWithBigEndian(buffer, "\""+reflect.ValueOf(i).String()+"\"")
-}
 func invalidValueEncoder(buffer io.Writer, i interface{}) error {
-	return EncodeWithBigEndian(buffer, "null")
+	return encodeWithBigEndian(buffer, 0)
 }
+
 func unsupportedTypeEncoder(buffer io.Writer, i interface{}) error {
 	return EncoderError("UnsupportedTypeError")
 }
 
+func ptrEncoder(buffer io.Writer, i interface{}) error {
+	iv := reflect.ValueOf(i)
+	if iv.IsNil() {
+		return nilEncoder(buffer, i)
+	}
+	return valueEncoder(buffer, iv.Elem().Interface())
+}
+
 func nilEncoder(buffer io.Writer, i interface{}) error {
 	if reflect.ValueOf(i).IsNil() {
-		return EncodeWithBigEndian(buffer, "null")
+		return encodeWithBigEndian(buffer, uint8(0))
 	}
 	return EncoderError("must nil kind")
 }
 
 func interfaceEncoder(buffer io.Writer, i interface{}) error {
-	if reflect.ValueOf(i).IsNil() {
-		return nilEncoder(buffer, i)
-	}
 	return valueEncoder(buffer, i)
 }
 
 func structEncoder(buffer io.Writer, i interface{}) (err error) {
 	iv := reflect.ValueOf(i)
-	it := reflect.TypeOf(i)
-
 	if iv.Kind() != reflect.Struct {
 		return EncoderError("need struct kind")
 	}
-
+	structBuffer := bytes.NewBuffer([]byte{})
 	for i := 0; i < iv.NumField(); i++ {
-		if err = valueEncoder(buffer, iv.Field(i).Interface()); err != nil {
-			fmt.Printf("ERROR valueEncoder : name: %s, type: %s, value: %v\n", it.Field(i).Name, iv.Field(i).Type(), iv.Field(i).Interface())
+		if err = valueEncoder(structBuffer, iv.Field(i).Interface()); err != nil {
 			return err
 		}
-		fmt.Printf("valueEncoder : name: %s, type: %s, value: %v\n", it.Field(i).Name, iv.Field(i).Type(), iv.Field(i).Interface())
-		fmt.Printf("buffer:%v\n", buffer)
 	}
-	return nil
+	if err = valueEncoder(buffer, structBuffer.Len()); err != nil {
+		return err
+	}
+	return bytesEncoder(buffer, structBuffer.Bytes())
 }
 
 func valueEncoder(buffer io.Writer, v interface{}) error {
-	if !reflect.ValueOf(v).IsValid() {
+	if !reflect.ValueOf(v).IsValid() || v == nil {
 		return invalidValueEncoder(buffer, v)
 	}
-	return newTypeEncoder(reflect.TypeOf(v), true)(buffer, v)
+	return newTypeEncoder(reflect.TypeOf(v))(buffer, v)
 }
 
 type encoderFunc func(w io.Writer, v interface{}) error
 
-func newTypeEncoder(t reflect.Type, allowAddr bool) encoderFunc {
+func newTypeEncoder(t reflect.Type) encoderFunc {
 	switch t.Kind() {
 	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr, reflect.Float32, reflect.Float64:
 		return numericalEncoder
@@ -433,24 +526,13 @@ func newTypeEncoder(t reflect.Type, allowAddr bool) encoderFunc {
 		return structEncoder
 	case reflect.Map:
 		return mapEncoder
-	case reflect.Slice:
+	case reflect.Slice, reflect.Array:
 		return sliceEncoder
-	case reflect.Array:
-		return sliceEncoder
-	//case reflect.Ptr:
-	//	return newPtrEncoder(t)
+	case reflect.Ptr:
+		return ptrEncoder
 	default:
 		return unsupportedTypeEncoder
 	}
-}
-
-func EncodeInterface(v interface{}) ([]byte, error) {
-	buffer := bytes.NewBuffer([]byte{})
-	err := valueEncoder(buffer, v)
-	if err != nil {
-		return nil, err
-	}
-	return []byte{}, nil
 }
 
 // RawMessage is a raw encoded JSON value.
